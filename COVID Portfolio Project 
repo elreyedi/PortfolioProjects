@@ -1,0 +1,264 @@
+USE PortfolioProject
+
+SElect * from CovidDeaths
+WHERE continent is not NULL
+ORDER by 3,4
+
+SElect * from CovidVaccinations
+ORDER by 3,4
+
+-- Select * 
+-- From PortfolioProject...CovidVaccinations 
+-- Order by 3,4
+
+-- Select Data that we are going to be using 
+
+Select location, date, total_cases, new_cases, total_deaths, population
+From PortfolioProject..CovidDeaths
+
+Select Count (people_vaccinated) As COUNT
+from CovidVaccinations
+Where location = 'Mexico'
+
+Select Count () As COUNT
+from CovidDeaths
+Where location = 'Mexico'
+
+Select * from CovidVaccinations 
+Where location = 'Mexico'
+
+SELECT Id, StudentName, StudentGender, StudentAge,
+SUM (StudentAge) OVER (ORDER BY Id) AS RunningAgeTotal
+from CovidVaccinations
+
+Select location, Count (people_vaccinated) OVER (ORDER BY Location) as TotalVaccinated
+From CovidVaccinations
+
+select people_vaccinated from CovidVaccinations
+where location = 'Mexico'
+
+select [date], people_vaccinated from CovidVaccinations
+where location = 'Nigeria' and people_vaccinated is not NULL
+
+
+Select location, date, total_cases, new_cases, total_deaths, population
+From PortfolioProject..CovidDeaths
+Order by 1,2
+
+-- Looking at Total Cases vs Total Deaths 
+-- Shows likelihood of dying if you contract covid in your country 
+Select location, date, total_cases, total_deaths,(total_deaths/total_cases)* 100 as DeathPercentage
+From PortfolioProject..CovidDeaths
+where location like '%states%'
+Order by 1,2
+
+-- looking at Total Cases vs Population 
+-- Shows what percentage of population got covid 
+
+Select location, date, Population, total_cases, (total_cases/population)* 100 as PercentPopulationInfected
+From PortfolioProject..CovidDeaths
+--WHERE location like '%states%'
+Order by 1,2
+
+-- Looking at Countries with Highest Infection Rate Compared to population
+
+Select location, Population, Max(total_cases) as HighestInfectionCount, Max((total_cases/population))* 100 as PercentPopulationInfected
+From PortfolioProject..CovidDeaths
+--WHERE location like '%states%'
+Group by location, Population 
+Order by PercentPopulationInfected DESC
+
+-- Showing Countries with Highest Death Count per population 
+-- alter column data type change to varchar 
+-- Alter Table CovidDeaths
+-- ALter COLUMN total_deaths VARCHAR(50)
+--Select Location, date, total_deaths
+--From PortfolioProject..CovidDeaths
+--WHERE location like '%Zimb%'
+--Order by Date DESC
+--WHERE location like '%states%'
+--Group by location, date
+--Order by Location desc,TotalDeathCount DESC, Date desc
+-- This query works for Showing Countries with Highest Death Count per population 
+--USE PortfolioProject
+--Alter table [dbo].[CovidDeaths]
+--alter COLUMN [total_deaths] FLOAT
+
+-- the Case clause is to convert null value to "O" this could be use in some cases when we want to conver a value to int
+Select total_deaths,
+
+Case when total_deaths is Null then 0 else total_deaths END as totalDeathsNew
+from [dbo].[CovidDeaths]
+
+Select Location, max(coalesce(total_deaths, 0)) as totalDeathsCount 
+from [dbo].[CovidDeaths]
+Group by location 
+Order by totalDeathsCount desc
+-- another way to get the same result using view 
+
+Create VIEW vwTotalDeath as 
+Select location, continent,
+
+Case when total_deaths is Null then 0 else total_deaths END as totalDeathsNew
+from [dbo].[CovidDeaths]
+
+
+
+-- Drop View vwTotalDeath
+
+select * from vwTotalDeath
+
+
+Select Location, max(totalDeathsNew) as totalDeathsCount 
+from vwTotalDeath
+WHERE continent is not NULL
+Group by location 
+Order by totalDeathsCount desc
+
+-- Create a Temporary  Table. this table will be only available 
+-- when working on the database and after leaving the database
+-- it will be there. 
+
+Create table #CovidDeaths 
+(location VARCHAR(50), total_deaths int)
+insert into #CovidDeaths 
+select location,
+Case when total_deaths is Null then 0 else total_deaths END as totalDeathsNew
+from [dbo].[CovidDeaths]
+
+
+
+
+select * from #CovidDeaths
+
+
+
+Select location, Max(total_deaths) as totalDeathsCount
+from #CovidDeaths 
+Group by location
+Order by totalDeathsCount DESC
+
+--drop table #CovidDeaths 
+
+
+-- LET'S BREAK THINGS DOWN BY CONTINENT 
+
+
+
+-- Showing continents witht the highest death count per population 
+
+Select continent, max(totalDeathsNew) as totalDeathsCount 
+from vwTotalDeath
+WHERE continent is not NULL
+Group by continent
+Order by totalDeathsCount desc
+
+-- GLOBAL NUMBERS
+
+Alter table [dbo].[CovidDeaths]
+alter COLUMN [new_cases] int
+
+Alter table [dbo].[CovidDeaths]
+alter COLUMN [new_deaths] int
+
+
+
+
+
+Select date, SUM(new_cases) as  total_cases, sum(new_deaths) as total_deaths, (sum(new_deaths)/Sum(new_cases)) * 100 as DeathPercentable --total_cases, total_deaths,(total_deaths/total_cases)* 100 as DeathPercentage
+From PortfolioProject..CovidDeaths
+-- where location like '%states%'
+Where continent is not null and new_cases is not null and new_deaths is not NULL
+Group by [date]
+Order by 1,2
+
+
+Select sum(new_cases) as total_cases, sum(new_deaths) as total_deaths, sum(Cast(new_deaths as float))/Sum(cast(new_cases as float)) * 100 as DeathPercentage --total_cases, total_deaths,(total_deaths/total_cases)* 100 as DeathPercentage
+From PortfolioProject..CovidDeaths
+-- where location like '%states%'
+Where continent is not null
+--Group by [date]
+Order by 1,2
+--------------------------------------------------
+-- Looking at Total Population vs Vaccinations 
+--------------------------------------------------
+
+-- updating the colum data type from nvarchar to float and then to int 
+-- Alter table [dbo].[CovidVaccinations ]
+-- alter COLUMN [new_vaccinations] INT
+
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(vac.new_vaccinations) OVER (partition by dea.LOCATION order by dea.location, dea.DATE) as RollingPeopleVaccinated
+-- , (RollingPeopleVaccinated/population) * 100
+From [dbo].[CovidDeaths] dea
+JOIN [dbo].[CovidVaccinations] vac
+    on dea.location = vac.[location]
+    and dea.date = vac.date
+where dea.continent is not NULL
+order by 1,2,3
+
+
+
+-- USE CTE 
+
+With PopvsVac (Continent, location, date, population, new_vaccinations, RollingPeopleVaccinated)
+as 
+(
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(vac.new_vaccinations) OVER (partition by dea.LOCATION order by dea.location, dea.DATE) as RollingPeopleVaccinated
+-- , (RollingPeopleVaccinated/population) * 100
+From [dbo].[CovidDeaths] dea
+JOIN [dbo].[CovidVaccinations] vac
+    on dea.location = vac.[location]
+    and dea.date = vac.date
+where dea.continent is not NULL
+-- order by 1,2,3
+)
+
+Select * , (RollingPeopleVaccinated/population) * 100
+from PopvsVac 
+
+-- TEMP TABLE 
+-- Drop table if EXISTS #PercentPopulationVaccinated
+
+Create Table #PercentPopulationVaccinated
+(
+Continent NVARCHAR(225),
+Location NVARCHAR(225),
+Date DATETIME,
+Population NUMERIC,
+New_Vaccination NUMERIC,
+RollingPeopleVaccinated NUMERIC
+)
+
+Insert into #PercentPopulationVaccinated
+
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(vac.new_vaccinations) OVER (partition by dea.LOCATION order by dea.location, dea.DATE) as RollingPeopleVaccinated
+-- , (RollingPeopleVaccinated/population) * 100
+From [dbo].[CovidDeaths] dea
+JOIN [dbo].[CovidVaccinations] vac
+    on dea.location = vac.[location]
+    and dea.date = vac.date
+where dea.continent is not NULL
+-- order by 1,2,3
+
+Select * , (RollingPeopleVaccinated/population) * 100
+from #PercentPopulationVaccinated
+
+
+-- Creating view to store data for later visualization 
+
+Create VIEW vwPercentPopulationVaccinated as 
+
+select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations
+, SUM(vac.new_vaccinations) OVER (partition by dea.LOCATION order by dea.location, dea.DATE) as RollingPeopleVaccinated
+-- , (RollingPeopleVaccinated/population) * 100
+From [dbo].[CovidDeaths] dea
+JOIN [dbo].[CovidVaccinations] vac
+    on dea.location = vac.[location]
+    and dea.date = vac.date
+where dea.continent is not NULL
+-- order by 1,2,3
+
+select * from vwPercentPopulationVaccinated
